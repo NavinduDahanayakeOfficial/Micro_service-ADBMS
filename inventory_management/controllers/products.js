@@ -69,6 +69,21 @@ export const updateProductDetails = (req, res) => {
     });
 };
 
+//update quantity
+export const updateQuantity = (req, res) => {
+    const productID = req.params.id;
+    const q = "UPDATE products SET `productQuantity`= ? WHERE productID = ?";
+    const values = [
+        req.body.productQuantity,
+    ];
+    db.query(q, [...values,productID], (err, data) => {
+        if (err) {
+            return res.send(err);
+        }
+        return res.json(data);
+    });
+};
+
 //READ A SINGLE PRODUCT
 export const getSingleProduct = (req, res) => {
     const productID = req.params.id;
@@ -78,6 +93,6 @@ export const getSingleProduct = (req, res) => {
             console.log(err);
             return res.json(err);
         }
-        return res.json(data);
+        return res.json(data[0]);
     });
 };

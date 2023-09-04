@@ -14,7 +14,6 @@ const getOrders = (req, res) => {
    });
 };
 
-
 const getOrderById = (req, res) => {
    const id = parseInt(req.params.id);
    // parseInt converts a string to an integer
@@ -28,8 +27,6 @@ const getOrderById = (req, res) => {
       res.status(200).json(result.rows);
    });
 };
-
-
 
 const addOrder = async (req, res) => {
    try {
@@ -52,18 +49,24 @@ const addOrder = async (req, res) => {
       if (productResponse.status === 404) {
          return res.status(404).send("Product not found");
       }
-      console.log(productResponse.data.quantity);
-      if (!productResponse.quantity >= quantity) {
+     
+      const productData = productResponse.data;
+
+      if (productData.productQuantity < quantity) {
          return res.status(404).send("Product quantity is not enough");
       }
-      console.log(productResponse.data.productPrice);
-      const unitPrice = productResponse.productPrice;
+
+      await axios.patch(`http://localhost:3002/api/products/quantity/${productId}`,{
+         productQuantity: productData.productQuantity - quantity,
+      });
+      
+      const unitPrice = productData.productPrice;
 
       // Set a default status to "inprogress" if no status is provided
       const orderStatus = status || "Inprogress";
 
-      const total = quantity * unitPrice;
-
+      let total = quantity * unitPrice;
+    
       pool.query(
          querries.addOrder,
          [customerId, productId, quantity, unitPrice, total, orderStatus],
@@ -78,8 +81,6 @@ const addOrder = async (req, res) => {
       res.status(500).send(error.message);
    }
 };
-
-
 
 const deleteOrder = (req, res) => {
    const id = parseInt(req.params.id);
@@ -97,38 +98,64 @@ const deleteOrder = (req, res) => {
    });
 };
 
+const updateOrder = async (req, res) => {
+   try{
+      const id = parseInt(req.params.id);
+      const { quantity, status } = req.body;
 
+      // Check if the order exists
+      const getOrderResult = await new Promise((resolve, reject) => {
+         pool.query(querries.getOrderById, [id], (error, result) => {
+            if (error) {
+               reject(error);
+            } else {
+               resolve(result);
+            }
+         });
+      });
 
-const updateOrder = (req, res) => {
-   const id = parseInt(req.params.id);
-
-   const { quantity, status } = req.body;
-
-   pool.query(querries.getOrderById, [id], (error, result) => {
-      const noOrder = !result.rows.length;
-      if (noOrder) {
-         return res
-            .status(404)
-            .send("Order with this id is not found in the database");
+      if (getOrderResult.rows.length === 0) {
+         return res.status(404).send("Order with this id is not found in the database");
       }
 
-      pool.query(querries.getQuantity, [id], (error, result) => {
-         if (result.rows[0].quantity >= quantity) {
-            return res.status(404).send("Product quantity is not enough");
-         }
+      const productId = getOrderResult.rows[0].productId;
 
-         pool.query(
-            querries.updateOrder,
-            [quantity, status, id],
-            (error, result) => {
-               if (error) {
-                  throw error;
-               }
-               res.status(200).send("Order updated successfully");
-            }
-         );
+      const productResponse = await axios.get(
+         `http://localhost:3002/api/products/${productId}`
+      );
+
+      const productData = productResponse.data;
+
+
+      // Check if the product quantity is enough
+      if (productData.productQuantity < quantity) {
+         return res.status(400).send("Product quantity is not enough");
+      }
+
+
+      // Update the product quantity using an Axios PATCH request
+      await axios.patch(`http://localhost:3002/api/products/quantity/${productId}`, {
+         productQuantity: productQuantity - quantity,
       });
-   });
+
+
+      const unitPrice = productData.productPrice;
+      let total = quantity * unitPrice;
+
+      // Update the order in the database
+      pool.query(
+         querries.updateOrder,
+         [quantity, total, status, id],
+         (error, result) => {
+            if (error) {
+               throw error;
+            }
+            res.status(200).send("Order updated successfully");
+         }
+      );
+   }catch(error){
+      res.status(500).send(error.message);
+   }
 };
 
 module.exports = {
