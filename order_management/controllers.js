@@ -4,16 +4,16 @@ const axios = require("axios");
 
 const getOrders = (req, res) => {
    pool.query(querries.getOrders, (error, result) => {
-      if(!result.rows.length){
+      if (!result.rows.length) {
          return res.status(404).send("No orders found in the database");
       }
-      
+
       res.status(200).json(result.rows);
       //q: what does .json(result.rows) do ?
       //a: it sends the result.rows as a json object
-
    });
 };
+
 
 const getOrderById = (req, res) => {
    const id = parseInt(req.params.id);
@@ -21,13 +21,15 @@ const getOrderById = (req, res) => {
    pool.query(querries.getOrderById, [id], (error, result) => {
       const noOrder = !result.rows.length;
       if (noOrder) {
-         return res.status(404).send(
-            "Order with this id is not found in the database"
-         );
+         return res
+            .status(404)
+            .send("Order with this id is not found in the database");
       }
       res.status(200).json(result.rows);
    });
 };
+
+
 
 const addOrder = async (req, res) => {
    try {
@@ -44,16 +46,18 @@ const addOrder = async (req, res) => {
       }
 
       //checking if the product exists
-      const productResponse = await axios.get(`http://localhost:3002/api/products/${productId}`);
-      if(productResponse.status === 404){
+      const productResponse = await axios.get(
+         `http://localhost:3002/api/products/${productId}`
+      );
+      if (productResponse.status === 404) {
          return res.status(404).send("Product not found");
       }
-
-      if(!productResponse.quantity>=quantity){
+      console.log(productResponse.data.quantity);
+      if (!productResponse.quantity >= quantity) {
          return res.status(404).send("Product quantity is not enough");
       }
-
-      const unitPrice =  productResponse.unitPrice; 
+      console.log(productResponse.data.productPrice);
+      const unitPrice = productResponse.productPrice;
 
       // Set a default status to "inprogress" if no status is provided
       const orderStatus = status || "Inprogress";
@@ -75,6 +79,8 @@ const addOrder = async (req, res) => {
    }
 };
 
+
+
 const deleteOrder = (req, res) => {
    const id = parseInt(req.params.id);
 
@@ -91,6 +97,8 @@ const deleteOrder = (req, res) => {
    });
 };
 
+
+
 const updateOrder = (req, res) => {
    const id = parseInt(req.params.id);
 
@@ -99,13 +107,13 @@ const updateOrder = (req, res) => {
    pool.query(querries.getOrderById, [id], (error, result) => {
       const noOrder = !result.rows.length;
       if (noOrder) {
-         return res.status(404).send(
-            "Order with this id is not found in the database"
-         );
+         return res
+            .status(404)
+            .send("Order with this id is not found in the database");
       }
 
       pool.query(querries.getQuantity, [id], (error, result) => {
-         if(result.rows[0].quantity>=quantity){
+         if (result.rows[0].quantity >= quantity) {
             return res.status(404).send("Product quantity is not enough");
          }
 
@@ -121,7 +129,6 @@ const updateOrder = (req, res) => {
          );
       });
    });
-
 };
 
 module.exports = {
