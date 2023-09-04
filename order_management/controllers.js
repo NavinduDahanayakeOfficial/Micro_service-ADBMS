@@ -4,18 +4,14 @@ const axios = require("axios");
 
 const getOrders = (req, res) => {
    pool.query(querries.getOrders, (error, result) => {
-      const noOrder = !result.rows.length;
-      //q: why do we put a ! in front of result.rows.length ?
-      //a: because if the result.rows.length is 0, then !0 = true
-      if (noOrder) {
-         res.status(404).send(
-            "Order with this id is not found in the database"
-         );
-         return;
+      if(!result.rows.length){
+         return res.status(404).send("No orders found in the database");
       }
+      
       res.status(200).json(result.rows);
       //q: what does .json(result.rows) do ?
       //a: it sends the result.rows as a json object
+
    });
 };
 
@@ -23,8 +19,11 @@ const getOrderById = (req, res) => {
    const id = parseInt(req.params.id);
    // parseInt converts a string to an integer
    pool.query(querries.getOrderById, [id], (error, result) => {
-      if (error) {
-         throw error;
+      const noOrder = !result.rows.length;
+      if (noOrder) {
+         return res.status(404).send(
+            "Order with this id is not found in the database"
+         );
       }
       res.status(200).json(result.rows);
    });
@@ -99,18 +98,15 @@ const updateOrder = (req, res) => {
 
    pool.query(querries.getOrderById, [id], (error, result) => {
       const noOrder = !result.rows.length;
-      //q: why do we put a ! in front of result.rows.length ?
-      //a: because if the result.rows.length is 0, then !0 = true
       if (noOrder) {
-         res.status(404).send(
+         return res.status(404).send(
             "Order with this id is not found in the database"
          );
-         return;
       }
 
       pool.query(querries.getQuantity, [id], (error, result) => {
          if(result.rows[0].quantity>=quantity){
-            res.status(404).send("Product quantity is not enough");
+            return res.status(404).send("Product quantity is not enough");
          }
 
          pool.query(
