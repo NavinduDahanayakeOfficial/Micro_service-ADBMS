@@ -1,4 +1,4 @@
-const pool = require("../orders/db");
+const pool = require("./db");
 const querries = require("./querries");
 
 const getOrders = (req, res) => {
