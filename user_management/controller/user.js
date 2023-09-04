@@ -39,8 +39,8 @@ export const getUser = async (req, res) => {
 export const getUsers = async (req, res) => {
    try {
       const users = await User.find();
-      if(!users) {
-         return res.status(404).json({ error: "No users available" });         
+      if (!users) {
+         return res.status(404).json({ error: "No users available" });
       }
       res.status(200).json(users);
    } catch (error) {
@@ -90,7 +90,7 @@ export const deleteUser = async (req, res) => {
          return res.status(404).json({ error: "User not available" });
       }
       console.log(deletedUser.name + " deleted");
-      res.status(204).json({msg: "User deleted successfully"});
+      res.status(204).json({ msg: "User deleted successfully" });
    } catch (error) {
       res.status(500).json({ error: "Error deleting user" });
    }

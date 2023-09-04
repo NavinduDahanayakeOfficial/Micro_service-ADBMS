@@ -6,10 +6,13 @@ const deleteOrdersById = "DELETE FROM orders WHERE id = $1";
 const updateOrder =
   "UPDATE orders SET quantity = $1, status = $2 WHERE id = $3";
 
+const getQuantity = "SELECT quantity FROM orders WHERE id = $1";
+
 module.exports = {
   getOrders,
   getOrderById,
   addOrder,
   deleteOrdersById,
   updateOrder,
+  getQuantity,
 };
