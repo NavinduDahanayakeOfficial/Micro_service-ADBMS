@@ -19,6 +19,21 @@ export const getAllProduct = (req, res) => {
     });
 };
 
+
+//READ A SINGLE PRODUCT
+export const getSingleProduct = (req, res) => {
+    const productID = req.params.id;
+    const q = "SELECT * FROM products WHERE productID = ?";
+    db.query(q, [productID], (err, data) => {
+        if (err) {
+            console.log(err);
+            return res.json(err);
+        }
+        return res.json(data[0]);
+    });
+};
+
+
 //CREATE
 export const addNewProduct = (req, res) => {
     const q = "INSERT INTO products(`productID`, `productName`, `productCategory`, `productBrand`, `productPrice`, `productQuantity`) VALUES (?)";
@@ -81,18 +96,5 @@ export const updateQuantity = (req, res) => {
             return res.send(err);
         }
         return res.json(data);
-    });
-};
-
-//READ A SINGLE PRODUCT
-export const getSingleProduct = (req, res) => {
-    const productID = req.params.id;
-    const q = "SELECT * FROM products WHERE productID = ?";
-    db.query(q, [productID], (err, data) => {
-        if (err) {
-            console.log(err);
-            return res.json(err);
-        }
-        return res.json(data[0]);
     });
 };

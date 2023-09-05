@@ -52,21 +52,24 @@ const addOrder = async (req, res) => {
      
       const productData = productResponse.data;
 
+      // Check if the product quantity is enough
       if (productData.productQuantity < quantity) {
          return res.status(404).send("Product quantity is not enough");
       }
 
+      //update the product quantity after the order
       await axios.patch(`http://localhost:3002/api/products/quantity/${productId}`,{
          productQuantity: productData.productQuantity - quantity,
       });
-      
-      const unitPrice = productData.productPrice;
 
       // Set a default status to "inprogress" if no status is provided
       const orderStatus = status || "Inprogress";
 
+      //calculate the total
+      const unitPrice = productData.productPrice;
       let total = quantity * unitPrice;
     
+      //add the order to the database
       pool.query(
          querries.addOrder,
          [customerId, productId, quantity, unitPrice, total, orderStatus],
@@ -103,7 +106,9 @@ const updateOrder = async (req, res) => {
       const id = parseInt(req.params.id);
       const { quantity, status } = req.body;
 
-      // Check if the order exists
+      console.log(quantity, status);
+
+      //retrieve the order from the database
       const getOrderResult = await new Promise((resolve, reject) => {
          pool.query(querries.getOrderById, [id], (error, result) => {
             if (error) {
@@ -114,31 +119,41 @@ const updateOrder = async (req, res) => {
          });
       });
 
+      // Check if the order exists
       if (getOrderResult.rows.length === 0) {
          return res.status(404).send("Order with this id is not found in the database");
       }
 
-      const productId = getOrderResult.rows[0].productId;
+      const oldQuantity = getOrderResult.rows[0].quantity;
+      const orderStatus = getOrderResult.rows[0].status.toLowerCase();
 
+      //if the order is completed, cannot update it
+      if (orderStatus === "completed") {
+         return res.status(400).send("Cannot update a completed order");
+      }
+
+      const productId = getOrderResult.rows[0].productid;
+
+      //get the product details from the products service
       const productResponse = await axios.get(
          `http://localhost:3002/api/products/${productId}`
       );
 
       const productData = productResponse.data;
 
+      console.log(productData.productQuantity);
 
       // Check if the product quantity is enough
       if (productData.productQuantity < quantity) {
          return res.status(400).send("Product quantity is not enough");
       }
 
-
-      // Update the product quantity using an Axios PATCH request
+      // Update the product quantity after the order
       await axios.patch(`http://localhost:3002/api/products/quantity/${productId}`, {
-         productQuantity: productQuantity - quantity,
+         productQuantity: productData.productQuantity + oldQuantity - quantity,
       });
 
-
+      //calculate the total
       const unitPrice = productData.productPrice;
       let total = quantity * unitPrice;
 
