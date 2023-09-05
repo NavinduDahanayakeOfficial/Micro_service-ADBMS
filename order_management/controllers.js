@@ -80,32 +80,75 @@ const addOrder = async (req, res) => {
             if (error) {
                throw error;
             }
-            
          }
       );
-      await axios.patch(`http://localhost:3000/api/users/numOfOrders/${customerId}`);
+      await axios.patch(
+         `http://localhost:3000/api/users/numOfOrders/${customerId}`
+      );
       res.status(201).send("Order added successfully");
-      
-      
    } catch (error) {
       res.status(500).send(error.message);
    }
 };
 
-const deleteOrder = (req, res) => {
-   const id = parseInt(req.params.id);
+const deleteOrder = async (req, res) => {
+   try {
+      const id = parseInt(req.params.id);
 
-   pool.query(querries.deleteOrdersById, [id], (error, result) => {
-      if (error) {
-         throw error;
+      //retrieve the order from the database
+      const getOrderResult = await new Promise((resolve, reject) => {
+         pool.query(querries.getOrderById, [id], (error, result) => {
+            if (error) {
+               reject(error);
+            } else {
+               resolve(result);
+            }
+         });
+      });
+
+      // Check if the order exists
+      if (getOrderResult.rows.length === 0) {
+         return res
+            .status(404)
+            .send("Order with this id is not found in the database");
       }
 
-      if (result.rowCount === 0) {
-         res.status(404).send("Order not found in the database");
-      } else {
-         res.status(200).send("Order deleted successfully");
+      const productId = getOrderResult.rows[0].productid;
+      const quantity = getOrderResult.rows[0].quantity;
+      const orderStatus = getOrderResult.rows[0].status.toLowerCase();
+      //if the order is completed, cannot delete it
+      if (orderStatus === "completed") {
+         return res.status(400).send("Cannot delete a completed order");
       }
-   });
+
+      //get the product details from the products service
+      const productResponse = await axios.get(
+         `http://localhost:3002/api/products/${productId}`
+      );
+
+      const productData = productResponse.data;
+
+      console.log(productData.productQuantity);
+
+      pool.query(querries.deleteOrdersById, [id], (error, result) => {
+         if (error) {
+            throw error;
+         }
+      });
+
+      // Update the product quantity after the order
+      await axios.patch(
+         `http://localhost:3002/api/products/quantity/${productId}`,
+         {
+            productQuantity:
+               productData.productQuantity +  quantity,
+         }
+      );
+
+      res.status(200).send("Order deleted successfully");
+   } catch (error) {
+      res.status(500).send(error.message);
+   }
 };
 
 const updateOrder = async (req, res) => {
