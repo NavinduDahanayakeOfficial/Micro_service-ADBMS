@@ -49,7 +49,7 @@ const addOrder = async (req, res) => {
       if (productResponse.status === 404) {
          return res.status(404).send("Product not found");
       }
-     
+
       const productData = productResponse.data;
 
       // Check if the product quantity is enough
@@ -58,9 +58,12 @@ const addOrder = async (req, res) => {
       }
 
       //update the product quantity after the order
-      await axios.patch(`http://localhost:3002/api/products/quantity/${productId}`,{
-         productQuantity: productData.productQuantity - quantity,
-      });
+      await axios.patch(
+         `http://localhost:3002/api/products/quantity/${productId}`,
+         {
+            productQuantity: productData.productQuantity - quantity,
+         }
+      );
 
       // Set a default status to "inprogress" if no status is provided
       const orderStatus = status || "Inprogress";
@@ -68,7 +71,7 @@ const addOrder = async (req, res) => {
       //calculate the total
       const unitPrice = productData.productPrice;
       let total = quantity * unitPrice;
-    
+
       //add the order to the database
       pool.query(
          querries.addOrder,
@@ -77,9 +80,13 @@ const addOrder = async (req, res) => {
             if (error) {
                throw error;
             }
-            res.status(201).send("Order added successfully");
+            
          }
       );
+      await axios.patch(`http://localhost:3000/api/users/numOfOrders/${customerId}`);
+      res.status(201).send("Order added successfully");
+      
+      
    } catch (error) {
       res.status(500).send(error.message);
    }
@@ -102,7 +109,7 @@ const deleteOrder = (req, res) => {
 };
 
 const updateOrder = async (req, res) => {
-   try{
+   try {
       const id = parseInt(req.params.id);
       const { quantity, status } = req.body;
 
@@ -121,7 +128,9 @@ const updateOrder = async (req, res) => {
 
       // Check if the order exists
       if (getOrderResult.rows.length === 0) {
-         return res.status(404).send("Order with this id is not found in the database");
+         return res
+            .status(404)
+            .send("Order with this id is not found in the database");
       }
 
       const oldQuantity = getOrderResult.rows[0].quantity;
@@ -149,9 +158,13 @@ const updateOrder = async (req, res) => {
       }
 
       // Update the product quantity after the order
-      await axios.patch(`http://localhost:3002/api/products/quantity/${productId}`, {
-         productQuantity: productData.productQuantity + oldQuantity - quantity,
-      });
+      await axios.patch(
+         `http://localhost:3002/api/products/quantity/${productId}`,
+         {
+            productQuantity:
+               productData.productQuantity + oldQuantity - quantity,
+         }
+      );
 
       //calculate the total
       const unitPrice = productData.productPrice;
@@ -168,7 +181,7 @@ const updateOrder = async (req, res) => {
             res.status(200).send("Order updated successfully");
          }
       );
-   }catch(error){
+   } catch (error) {
       res.status(500).send(error.message);
    }
 };

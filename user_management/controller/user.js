@@ -1,39 +1,6 @@
+import Counter from "../model/Counter.js";
 import User from "../model/User.js";
 
-//*add a new user
-export const createUser = async (req, res) => {
-   try {
-      const { name, email, phoneNumber, address } = req.body;
-
-      const userExists = await User.findOne({ email });
-
-      if (userExists) {
-         return res.status(400).json({ error: "User already exists" });
-      }
-
-      const newUser = new User({ name, email, phoneNumber, address });
-      const savedUser = await newUser.save();
-
-      res.status(201).json(savedUser);
-   } catch (error) {
-      res.status(500).json({ error: "Error creating user" });
-   }
-};
-
-//*get a user by id
-export const getUser = async (req, res) => {
-   try {
-      const id = req.params.id;
-      const user = await User.findById(id);
-      if (!user) {
-         return res.status(404).json({ error: "User not available" });
-      }
-
-      res.status(200).json(user);
-   } catch (error) {
-      res.status(404).json({ error: "Error retrieving user" });
-   }
-};
 
 //*get all users
 export const getUsers = async (req, res) => {
@@ -48,11 +15,71 @@ export const getUsers = async (req, res) => {
    }
 };
 
+
+//*get a user by mongodb userId
+export const getUser = async (req, res) => {
+   try {
+      const userId = req.params.id;
+      const user = await User.findOne({ userId });
+      if (!user) {
+         return res.status(404).json({ error: "User not available" });
+      }
+
+      res.status(200).json(user);
+   } catch (error) {
+      res.status(404).json({ error: "Error retrieving user" });
+   }
+};
+
+
+//*add a new user
+export const createUser = async (req, res) => {
+   try {
+      const { name, email, phoneNumber, address } = req.body;
+
+      const userExists = await User.findOne({ email });
+
+      if (userExists) {
+         return res.status(400).json({ error: "User already exists" });
+      }
+
+      const counterData = await Counter.findOneAndUpdate(
+         { id: "autoIncrementId" },
+         { $inc: { sequence_value: 1 } },
+         { new: true },
+      );
+
+      let userId;
+      if(!counterData){
+         const newCounter = new Counter({
+            id:"autoIncrementId",
+            sequence_value:1
+         });
+
+         await newCounter.save();
+
+         userId = 1;
+      }else{
+         userId = counterData.sequence_value;
+      }
+
+      const newUser = new User({ userId, name, email, phoneNumber, address, numOfOrders:0 });
+      const savedUser = await newUser.save();
+
+      res.status(201).json(savedUser);
+   } catch (error) {
+      console.log(error);
+      res.status(500).json({ error: "Error creating user" });
+   }
+};
+
+
+
 //*update a user
 export const updateUser = async (req, res) => {
    try {
-      const id = req.params.id;
-      const user = await User.findById(id);
+      const userId = req.params.id;
+      const user = await User.findOne({userId});
 
       if (!user) {
          return res.status(404).json({ error: "User not available" });
@@ -81,16 +108,32 @@ export const updateUser = async (req, res) => {
    }
 };
 
+
+//* update numOfOrders property of a user
+export const updateUserNumOfOrders = async (req, res) => {
+   try {
+      const userId = req.params.id;
+
+      await User.findOneAndUpdate({userId},{$inc:{numOfOrders:1}});
+
+      res.status(200).send();
+   } catch (error) {
+     
+      res.status(500).json({ error: "Error updating users" });
+   }
+}
+
+
 //*delete a user
 export const deleteUser = async (req, res) => {
    try {
-      const id = req.params.id;
-      const deletedUser = await User.findByIdAndDelete(id);
+      const userId = req.params.id;
+      const deletedUser = await User.findOneAndDelete({ userId });
       if (!deletedUser) {
          return res.status(404).json({ error: "User not available" });
       }
       console.log(deletedUser.name + " deleted");
-      res.status(204).json({ msg: "User deleted successfully" });
+      res.status(200).json({ message: "User deleted" });
    } catch (error) {
       res.status(500).json({ error: "Error deleting user" });
    }
