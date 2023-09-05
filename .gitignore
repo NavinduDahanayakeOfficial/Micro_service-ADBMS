@@ -1,2 +1,6 @@
 /user_management/node_modules
+/order_management/node_modules
+/inventory_management/node_modules
 /user_management/.env
+/order_management/.env
+/inventory_management/.env
