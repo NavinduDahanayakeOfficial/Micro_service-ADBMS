@@ -128,7 +128,6 @@ const deleteOrder = async (req, res) => {
 
       const productData = productResponse.data;
 
-      console.log(productData.productQuantity);
 
       pool.query(querries.deleteOrdersById, [id], (error, result) => {
          if (error) {
@@ -156,7 +155,7 @@ const updateOrder = async (req, res) => {
       const id = parseInt(req.params.id);
       const { quantity, status } = req.body;
 
-      console.log(quantity, status);
+      
 
       //retrieve the order from the database
       const getOrderResult = await new Promise((resolve, reject) => {
@@ -193,7 +192,7 @@ const updateOrder = async (req, res) => {
 
       const productData = productResponse.data;
 
-      console.log(productData.productQuantity);
+      
 
       // Check if the product quantity is enough
       if (productData.productQuantity < quantity) {
