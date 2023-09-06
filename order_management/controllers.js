@@ -83,7 +83,7 @@ const addOrder = async (req, res) => {
          }
       );
       await axios.patch(
-         `http://localhost:3000/api/users/numOfOrders/${customerId}`
+         `http://localhost:3000/api/users/numOfOrders/${customerId}/increment`
       );
       res.status(201).send("Order added successfully");
    } catch (error) {
@@ -113,6 +113,7 @@ const deleteOrder = async (req, res) => {
             .send("Order with this id is not found in the database");
       }
 
+      const customerId = getOrderResult.rows[0].customerid;
       const productId = getOrderResult.rows[0].productid;
       const quantity = getOrderResult.rows[0].quantity;
       const orderStatus = getOrderResult.rows[0].status.toLowerCase();
@@ -144,6 +145,11 @@ const deleteOrder = async (req, res) => {
          }
       );
 
+      //update the number of orders of the customer
+      await axios.patch(
+         `http://localhost:3000/api/users/numOfOrders/${customerId}/decrement`
+      );
+
       res.status(200).send("Order deleted successfully");
    } catch (error) {
       res.status(500).send(error.message);
@@ -154,8 +160,6 @@ const updateOrder = async (req, res) => {
    try {
       const id = parseInt(req.params.id);
       const { quantity, status } = req.body;
-
-      
 
       //retrieve the order from the database
       const getOrderResult = await new Promise((resolve, reject) => {

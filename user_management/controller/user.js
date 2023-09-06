@@ -113,8 +113,11 @@ export const updateUser = async (req, res) => {
 export const updateUserNumOfOrders = async (req, res) => {
    try {
       const userId = req.params.id;
+      const action = req.params.action;
 
-      await User.findOneAndUpdate({userId},{$inc:{numOfOrders:1}});
+      const updateValue = action === "increment" ? 1 : -1;
+
+      await User.findOneAndUpdate({userId},{$inc:{numOfOrders:updateValue}});
 
       res.status(200).send();
    } catch (error) {

@@ -14,7 +14,7 @@ router.get("/", getUsers);
 router.get("/:id", getUser);
 router.post("/", createUser);
 router.patch("/:id", updateUser);
-router.patch("/numOfOrders/:id", updateUserNumOfOrders);
+router.patch("/numOfOrders/:id/:action", updateUserNumOfOrders);
 router.delete("/:id", deleteUser);
 
 export default router;
