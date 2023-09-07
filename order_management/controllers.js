@@ -28,10 +28,10 @@ const getOrderById = (req, res) => {
    });
 };
 
+
 const addOrder = async (req, res) => {
    try {
-      const { customerId, productId, quantity, status } = req.body; //destructuring the request body
-      //checking the email is already in the pool
+      const { customerId, products, status } = req.body; 
 
       //checking if the customer exists
       const userResponse = await axios.get(
@@ -42,54 +42,79 @@ const addOrder = async (req, res) => {
          return res.status(404).send("User not found");
       }
 
-      //checking if the product exists
-      const productResponse = await axios.get(
-         `http://localhost:3002/api/products/${productId}`
-      );
-      if (productResponse.status === 404) {
-         return res.status(404).send("Product not found");
-      }
-
-      const productData = productResponse.data;
-
-      // Check if the product quantity is enough
-      if (productData.productQuantity < quantity) {
-         return res.status(404).send("Product quantity is not enough");
-      }
-
-      //update the product quantity after the order
-      await axios.patch(
-         `http://localhost:3002/api/products/quantity/${productId}`,
-         {
-            productQuantity: productData.productQuantity - quantity,
-         }
-      );
-
       // Set a default status to "inprogress" if no status is provided
       const orderStatus = status || "Inprogress";
 
-      //calculate the total
-      const unitPrice = productData.productPrice;
-      let total = quantity * unitPrice;
-
-      //add the order to the database
-      pool.query(
-         querries.addOrder,
-         [customerId, productId, quantity, unitPrice, total, orderStatus],
-         (error, results) => {
-            if (error) {
-               throw error;
-            }
-         }
-      );
-      await axios.patch(
-         `http://localhost:3000/api/users/numOfOrders/${customerId}/increment`
-      );
-      res.status(201).send("Order added successfully");
+      
    } catch (error) {
       res.status(500).send(error.message);
    }
-};
+}
+
+
+
+// const addOrder = async (req, res) => {
+//    try {
+//       const { customerId, productId, quantity, status } = req.body; //destructuring the request body
+//       //checking the email is already in the pool
+
+//       //checking if the customer exists
+//       const userResponse = await axios.get(
+//          `http://localhost:3000/api/users/${customerId}`
+//       );
+
+//       if (!userResponse) {
+//          return res.status(404).send("User not found");
+//       }
+
+//       //checking if the product exists
+//       const productResponse = await axios.get(
+//          `http://localhost:3002/api/products/${productId}`
+//       );
+//       if (productResponse.status === 404) {
+//          return res.status(404).send("Product not found");
+//       }
+
+//       const productData = productResponse.data;
+
+//       // Check if the product quantity is enough
+//       if (productData.productQuantity < quantity) {
+//          return res.status(404).send("Product quantity is not enough");
+//       }
+
+//       //update the product quantity after the order
+//       await axios.patch(
+//          `http://localhost:3002/api/products/quantity/${productId}`,
+//          {
+//             productQuantity: productData.productQuantity - quantity,
+//          }
+//       );
+
+//       // Set a default status to "inprogress" if no status is provided
+//       const orderStatus = status || "Inprogress";
+
+//       //calculate the total
+//       const unitPrice = productData.productPrice;
+//       let total = quantity * unitPrice;
+
+//       //add the order to the database
+//       pool.query(
+//          querries.addOrder,
+//          [customerId, productId, quantity, unitPrice, total, orderStatus],
+//          (error, results) => {
+//             if (error) {
+//                throw error;
+//             }
+//          }
+//       );
+//       await axios.patch(
+//          `http://localhost:3000/api/users/numOfOrders/${customerId}/increment`
+//       );
+//       res.status(201).send("Order added successfully");
+//    } catch (error) {
+//       res.status(500).send(error.message);
+//    }
+// };
 
 const deleteOrder = async (req, res) => {
    try {
