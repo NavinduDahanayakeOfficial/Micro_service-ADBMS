@@ -28,10 +28,9 @@ const getOrderById = (req, res) => {
    });
 };
 
-
 const addOrder = async (req, res) => {
    try {
-      const { customerId, products, status } = req.body; 
+      const { customerId, products, status } = req.body;
 
       //checking if the customer exists
       const userResponse = await axios.get(
@@ -45,13 +44,70 @@ const addOrder = async (req, res) => {
       // Set a default status to "inprogress" if no status is provided
       const orderStatus = status || "Inprogress";
 
-      
+      let totalBill = 0;
+
+      for (const product of products) {
+         const { productId, quantity } = product;
+
+         //checking if the product exists
+         const productResponse = await axios.get(
+            `http://localhost:3002/api/products/${productId}`
+         );
+         if (productResponse.status === 404) {
+            return res.status(404).send("Product not found");
+         }
+
+         const productData = productResponse.data;
+
+         // Check if the product quantity is enough
+         if (productData.productQuantity < quantity) {
+            return res.status(404).send("Product quantity is not enough");
+         }
+
+         //calculate the total
+         const totalProductPrice = productData.productPrice * quantity;
+
+         pool.query(
+            querries.addOrderProduct,
+            [
+               customerId,
+               productId,
+               quantity,
+               productData.productPrice,
+               totalProductPrice,
+            ],
+            (error, results) => {
+               if (error) {
+                  throw error;
+               }
+            }
+         );
+
+         //update the product quantity after the order
+         await axios.patch(
+            `http://localhost:3002/api/products/quantity/${productId}`,
+            {
+               productQuantity: productData.productQuantity - quantity,
+            }
+         );
+
+         totalBill += totalProductPrice;
+      }
+
+      //add the order to the orderTable
+      pool.query(
+         querries.addOrder,
+         [customerId, totalBill, orderStatus],
+         (error, results) => {
+            if (error) {
+               throw error;
+            }
+         }
+      );
    } catch (error) {
       res.status(500).send(error.message);
    }
-}
-
-
+};
 
 // const addOrder = async (req, res) => {
 //    try {
@@ -154,7 +210,6 @@ const deleteOrder = async (req, res) => {
 
       const productData = productResponse.data;
 
-
       pool.query(querries.deleteOrdersById, [id], (error, result) => {
          if (error) {
             throw error;
@@ -165,8 +220,7 @@ const deleteOrder = async (req, res) => {
       await axios.patch(
          `http://localhost:3002/api/products/quantity/${productId}`,
          {
-            productQuantity:
-               productData.productQuantity +  quantity,
+            productQuantity: productData.productQuantity + quantity,
          }
       );
 
@@ -220,8 +274,6 @@ const updateOrder = async (req, res) => {
       );
 
       const productData = productResponse.data;
-
-      
 
       // Check if the product quantity is enough
       if (productData.productQuantity < quantity) {
