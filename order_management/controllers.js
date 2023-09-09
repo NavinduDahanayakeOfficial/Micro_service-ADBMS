@@ -1,9 +1,9 @@
 const pool = require("./db");
-const querries = require("./querries");
+const queries = require("./queries");
 const axios = require("axios");
 
 const getOrders = (req, res) => {
-   pool.query(querries.getOrders, (error, result) => {
+   pool.query(queries.getOrders, (error, result) => {
       if (!result.rows.length) {
          return res.status(404).send("No orders found in the database");
       }
@@ -14,22 +14,47 @@ const getOrders = (req, res) => {
    });
 };
 
-const getOrderById = (req, res) => {
-   const id = parseInt(req.params.id);
-   // parseInt converts a string to an integer
-   pool.query(querries.getOrderById, [id], (error, result) => {
-      const noOrder = !result.rows.length;
-      if (noOrder) {
-         return res
-            .status(404)
-            .send("Order with this id is not found in the database");
+const getOrderById = async (req, res) => {
+   try {
+      const id = req.params.id;
+      // parseInt converts a string to an integer
+      const orderRes = await pool.query(queries.getOrderById, [id]);
+
+      if (orderRes.rowCount === 0) {
+         throw new Error("Order not found");
       }
-      res.status(200).json(result.rows);
-   });
+
+      const orderProductRes = await pool.query(queries.getOrderProductsById, [
+         id,
+      ]);
+
+      if (orderProductRes.rowCount === 0) {
+         throw new Error("Order products not found");
+      }
+
+      const products = orderProductRes.rows.map((row) => ({
+         productId: row.productid,
+         quantity: row.quantity,
+         unitPrice: row.unitprice,
+         totalProductPrice: row.totalproductprice,
+      }));
+
+      const response = {
+         order: orderRes.rows[0],
+         products,
+      };
+
+      res.status(200).json(response);
+   } catch (error) {
+      res.status(500).send(error.message);
+   }
 };
 
 const addOrder = async (req, res) => {
+   const client = await pool.connect();
    try {
+      await client.query("BEGIN"); // Start a transaction
+
       const { customerId, products, status } = req.body;
 
       //checking if the customer exists
@@ -38,50 +63,59 @@ const addOrder = async (req, res) => {
       );
 
       if (!userResponse) {
-         return res.status(404).send("User not found");
+         throw new Error("User not found");
       }
 
       // Set a default status to "inprogress" if no status is provided
       const orderStatus = status || "Inprogress";
 
-      let totalBill = 0;
+      let totalAmount = 0;
+
+      //add the order to the orderTable
+      const orderRes = await client.query(queries.addOrder, [
+         customerId,
+         totalAmount,
+         orderStatus,
+      ]);
+
+      if (orderRes.rowCount === 0) {
+         throw new Error("Failed to insert the order");
+      }
+
+      const orderId = orderRes.rows[0].orderid;
 
       for (const product of products) {
          const { productId, quantity } = product;
 
          //checking if the product exists
-         const productResponse = await axios.get(
+         const productRes = await axios.get(
             `http://localhost:3002/api/products/${productId}`
          );
-         if (productResponse.status === 404) {
-            return res.status(404).send("Product not found");
+         if (productRes.status === 404) {
+            throw new Error("Product not found");
          }
 
-         const productData = productResponse.data;
+         const productData = productRes.data;
 
          // Check if the product quantity is enough
          if (productData.productQuantity < quantity) {
-            return res.status(404).send("Product quantity is not enough");
+            throw new Error("Product quantity is not enough");
          }
 
          //calculate the total
          const totalProductPrice = productData.productPrice * quantity;
 
-         pool.query(
-            querries.addOrderProduct,
-            [
-               customerId,
-               productId,
-               quantity,
-               productData.productPrice,
-               totalProductPrice,
-            ],
-            (error, results) => {
-               if (error) {
-                  throw error;
-               }
-            }
-         );
+         const orderProductRes = await client.query(queries.addOrderProduct, [
+            orderId,
+            productId,
+            quantity,
+            productData.productPrice,
+            totalProductPrice,
+         ]);
+
+         if (orderProductRes.rowCount === 0) {
+            throw new Error("Failed to insert the order product");
+         }
 
          //update the product quantity after the order
          await axios.patch(
@@ -91,86 +125,40 @@ const addOrder = async (req, res) => {
             }
          );
 
-         totalBill += totalProductPrice;
+         totalAmount += totalProductPrice;
       }
 
-      //add the order to the orderTable
-      pool.query(
-         querries.addOrder,
-         [customerId, totalBill, orderStatus],
-         (error, results) => {
-            if (error) {
-               throw error;
-            }
-         }
+      // Update the totalAmount in the orders table
+      const updateOrderRes = await client.query(
+         queries.updateOrderTotalAmount,
+         [totalAmount, orderId]
       );
+
+      if (updateOrderRes.rowCount === 0) {
+         throw new Error("Failed to update the total amount of the order");
+      }
+
+      await axios.patch(
+         `http://localhost:3000/api/users/numOfOrders/${customerId}/increment`
+      );
+
+      // Commit the transaction
+      await client.query("COMMIT");
+
+      res.status(201).send({
+         orderId,
+         customerId,
+         totalAmount,
+         status: orderStatus,
+      });
    } catch (error) {
+      // Rollback the transaction on error
+      await client.query("ROLLBACK");
       res.status(500).send(error.message);
+   } finally {
+      client.release();
    }
 };
-
-// const addOrder = async (req, res) => {
-//    try {
-//       const { customerId, productId, quantity, status } = req.body; //destructuring the request body
-//       //checking the email is already in the pool
-
-//       //checking if the customer exists
-//       const userResponse = await axios.get(
-//          `http://localhost:3000/api/users/${customerId}`
-//       );
-
-//       if (!userResponse) {
-//          return res.status(404).send("User not found");
-//       }
-
-//       //checking if the product exists
-//       const productResponse = await axios.get(
-//          `http://localhost:3002/api/products/${productId}`
-//       );
-//       if (productResponse.status === 404) {
-//          return res.status(404).send("Product not found");
-//       }
-
-//       const productData = productResponse.data;
-
-//       // Check if the product quantity is enough
-//       if (productData.productQuantity < quantity) {
-//          return res.status(404).send("Product quantity is not enough");
-//       }
-
-//       //update the product quantity after the order
-//       await axios.patch(
-//          `http://localhost:3002/api/products/quantity/${productId}`,
-//          {
-//             productQuantity: productData.productQuantity - quantity,
-//          }
-//       );
-
-//       // Set a default status to "inprogress" if no status is provided
-//       const orderStatus = status || "Inprogress";
-
-//       //calculate the total
-//       const unitPrice = productData.productPrice;
-//       let total = quantity * unitPrice;
-
-//       //add the order to the database
-//       pool.query(
-//          querries.addOrder,
-//          [customerId, productId, quantity, unitPrice, total, orderStatus],
-//          (error, results) => {
-//             if (error) {
-//                throw error;
-//             }
-//          }
-//       );
-//       await axios.patch(
-//          `http://localhost:3000/api/users/numOfOrders/${customerId}/increment`
-//       );
-//       res.status(201).send("Order added successfully");
-//    } catch (error) {
-//       res.status(500).send(error.message);
-//    }
-// };
 
 const deleteOrder = async (req, res) => {
    try {
@@ -178,7 +166,7 @@ const deleteOrder = async (req, res) => {
 
       //retrieve the order from the database
       const getOrderResult = await new Promise((resolve, reject) => {
-         pool.query(querries.getOrderById, [id], (error, result) => {
+         pool.query(queries.getOrderById, [id], (error, result) => {
             if (error) {
                reject(error);
             } else {
@@ -204,13 +192,13 @@ const deleteOrder = async (req, res) => {
       }
 
       //get the product details from the products service
-      const productResponse = await axios.get(
+      const productRes = await axios.get(
          `http://localhost:3002/api/products/${productId}`
       );
 
-      const productData = productResponse.data;
+      const productData = productRes.data;
 
-      pool.query(querries.deleteOrdersById, [id], (error, result) => {
+      pool.query(queries.deleteOrdersById, [id], (error, result) => {
          if (error) {
             throw error;
          }
@@ -242,7 +230,7 @@ const updateOrder = async (req, res) => {
 
       //retrieve the order from the database
       const getOrderResult = await new Promise((resolve, reject) => {
-         pool.query(querries.getOrderById, [id], (error, result) => {
+         pool.query(queries.getOrderById, [id], (error, result) => {
             if (error) {
                reject(error);
             } else {
@@ -269,11 +257,11 @@ const updateOrder = async (req, res) => {
       const productId = getOrderResult.rows[0].productid;
 
       //get the product details from the products service
-      const productResponse = await axios.get(
+      const productRes = await axios.get(
          `http://localhost:3002/api/products/${productId}`
       );
 
-      const productData = productResponse.data;
+      const productData = productRes.data;
 
       // Check if the product quantity is enough
       if (productData.productQuantity < quantity) {
@@ -295,7 +283,7 @@ const updateOrder = async (req, res) => {
 
       // Update the order in the database
       pool.query(
-         querries.updateOrder,
+         queries.updateOrder,
          [quantity, total, status, id],
          (error, result) => {
             if (error) {
