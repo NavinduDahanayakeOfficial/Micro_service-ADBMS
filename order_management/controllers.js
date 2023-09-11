@@ -287,7 +287,13 @@ const updateOrderProducts = async (req, res) => {
 
       await client.query("BEGIN"); // Start a transaction
 
-      let totalAmount = 0;
+      const orderRes = await client.query(queries.getOrderById, [orderId]);
+
+      if (orderRes.rowCount === 0) {
+         throw new Error("Order not found");
+      }
+
+      let totalAmount = orderRes.rows[0].totalamount;
 
       for (const product of products) {
          const { productId, quantity } = product;
@@ -305,6 +311,8 @@ const updateOrderProducts = async (req, res) => {
          }
 
          const orderProductData = orderProductRes.rows[0];
+
+         totalAmount -= orderProductData.totalproductprice;
 
          // Calculate the difference in quantity
          const originalQuantity = orderProductData.quantity;
