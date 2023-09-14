@@ -1,7 +1,6 @@
 import Counter from "../model/Counter.js";
 import User from "../model/User.js";
 
-
 //*get all users
 export const getUsers = async (req, res) => {
    try {
@@ -14,7 +13,6 @@ export const getUsers = async (req, res) => {
       res.status(500).json({ error: "Error retrieving users" });
    }
 };
-
 
 //*get a user by mongodb userId
 export const getUser = async (req, res) => {
@@ -31,7 +29,6 @@ export const getUser = async (req, res) => {
    }
 };
 
-
 //*add a new user
 export const createUser = async (req, res) => {
    try {
@@ -46,24 +43,31 @@ export const createUser = async (req, res) => {
       const counterData = await Counter.findOneAndUpdate(
          { id: "autoIncrementId" },
          { $inc: { sequence_value: 1 } },
-         { new: true },
+         { new: true }
       );
 
       let userId;
-      if(!counterData){
+      if (!counterData) {
          const newCounter = new Counter({
-            id:"autoIncrementId",
-            sequence_value:1
+            id: "autoIncrementId",
+            sequence_value: 1,
          });
 
          await newCounter.save();
 
          userId = 1;
-      }else{
+      } else {
          userId = counterData.sequence_value;
       }
 
-      const newUser = new User({ userId, name, email, phoneNumber, address, numOfOrders:0 });
+      const newUser = new User({
+         userId,
+         name,
+         email,
+         phoneNumber,
+         address,
+         numOfOrders: 0,
+      });
       const savedUser = await newUser.save();
 
       res.status(201).json(savedUser);
@@ -73,13 +77,11 @@ export const createUser = async (req, res) => {
    }
 };
 
-
-
 //*update a user
 export const updateUser = async (req, res) => {
    try {
       const userId = req.params.id;
-      const user = await User.findOne({userId});
+      const user = await User.findOne({ userId });
 
       if (!user) {
          return res.status(404).json({ error: "User not available" });
@@ -108,7 +110,6 @@ export const updateUser = async (req, res) => {
    }
 };
 
-
 //* update numOfOrders property of a user
 export const updateUserNumOfOrders = async (req, res) => {
    try {
@@ -117,15 +118,16 @@ export const updateUserNumOfOrders = async (req, res) => {
 
       const updateValue = action === "increment" ? 1 : -1;
 
-      await User.findOneAndUpdate({userId},{$inc:{numOfOrders:updateValue}});
+      await User.findOneAndUpdate(
+         { userId },
+         { $inc: { numOfOrders: updateValue } }
+      );
 
       res.status(200).send();
    } catch (error) {
-     
       res.status(500).json({ error: "Error updating users" });
    }
-}
-
+};
 
 //*delete a user
 export const deleteUser = async (req, res) => {

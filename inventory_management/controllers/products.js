@@ -3,7 +3,6 @@ import mysql from "mysql2";
 
 // dotenv.config();
 
-
 const db = mysql.createConnection({
    host: process.env.HOST,
    user: process.env.USER,
@@ -38,22 +37,38 @@ export const getSingleProduct = (req, res) => {
 
 //CREATE
 export const addNewProduct = (req, res) => {
-   const q =
-      "INSERT INTO products(`productID`, `productName`, `productCategory`, `productBrand`, `productPrice`, `productQuantity`) VALUES (?)";
-   const values = [
-      req.body.productID,
-      req.body.productName,
-      req.body.productCategory,
-      req.body.productBrand,
-      req.body.productPrice,
-      req.body.productQuantity,
-   ];
-   db.query(q, [values], (err, data) => {
-      if (err) {
-         return res.send(err);
+   db.query(
+      "SELECT * FROM products WHERE productName = ?",
+      [req.body.productName],
+      (err, data) => {
+         if (err) {
+            console.log(err);
+            return res
+               .status(500)
+               .json({ error: "An error occurred while checking the product" });
+         }
+
+         if (data.length > 0) {
+            return res.status(400).json({ message: "Product already exists" });
+         }
+
+         const q =
+            "INSERT INTO products( `productName`, `productCategory`, `productBrand`, `productPrice`, `productQuantity`) VALUES (?)";
+         const values = [
+            req.body.productName,
+            req.body.productCategory,
+            req.body.productBrand,
+            req.body.productPrice,
+            req.body.productQuantity,
+         ];
+         db.query(q, [values], (err, data) => {
+            if (err) {
+               return res.send(err);
+            }
+            return res.json(data);
+         });
       }
-      return res.json(data);
-   });
+   );
 };
 
 //DELETE
