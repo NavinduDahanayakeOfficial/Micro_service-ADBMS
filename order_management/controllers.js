@@ -29,6 +29,7 @@ const getOrderById = async (req, res) => {
          throw new Error("Order not found");
       }
 
+      //get order products
       const orderProductRes = await pool.query(queries.getOrderProductsById, [
          orderId,
       ]);
@@ -59,7 +60,8 @@ const getOrderById = async (req, res) => {
 const addOrder = async (req, res) => {
    const client = await pool.connect();
    try {
-      await client.query("BEGIN"); // Start a transaction
+      // Start a transaction
+      await client.query("BEGIN"); 
 
       const { customerId, products, status } = req.body;
 
@@ -106,6 +108,7 @@ const addOrder = async (req, res) => {
             throw new Error("Product not found");
          }
 
+         
          const productData = productRes.data;
 
          // Check if the product quantity is enough
@@ -237,11 +240,13 @@ const deleteOrder = async (req, res) => {
          `http://localhost:3000/api/users/numOfOrders/${customerId}/decrement`
       );
 
-      await client.query("COMMIT"); // Commit the transaction
+       // Commit the transaction
+      await client.query("COMMIT");
 
       res.status(200).send("Order deleted successfully");
    } catch (error) {
-      await client.query("ROLLBACK"); // Rollback the transaction on error
+       // Rollback the transaction on error
+      await client.query("ROLLBACK");
       res.status(500).send(error.message);
    } finally {
       client.release();
@@ -285,7 +290,8 @@ const updateOrderProducts = async (req, res) => {
       const orderId = req.params.id;
       const { products } = req.body;
 
-      await client.query("BEGIN"); // Start a transaction
+      // Start a transaction
+      await client.query("BEGIN"); 
 
       const orderRes = await client.query(queries.getOrderById, [orderId]);
 
